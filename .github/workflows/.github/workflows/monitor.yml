@@ -1,0 +1,59 @@
+name: Check TIE Lote
+
+on:
+  schedule:
+    - cron: '0 5,17 * * *'
+  workflow_dispatch:
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - run: pip install selenium requests webdriver-manager
+      - name: Check
+        run: python3 << 'SCRIPT'
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.support.ui import Select
+from webdriver_manager.chrome import ChromeDriverManager
+import time, re
+
+opts = webdriver.ChromeOptions()
+opts.add_argument('--headless')
+opts.add_argument('--no-sandbox')
+opts.add_argument('--disable-dev-shm-usage')
+
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=opts)
+
+try:
+    driver.get("https://form24.es/en/lote/select")
+    time.sleep(3)
+    Select(driver.find_element("name", "province")).select_by_visible_text("Málaga")
+    time.sleep(2)
+    Select(driver.find_element("name", "office")).select_by_visible_text("CNP Málaga Provincial")
+    time.sleep(3)
+    
+    match = re.search(r'2026/(\d+)', driver.page_source)
+    if match:
+        lote = match.group(1)
+        with open('lote.txt', 'w') as f:
+            f.write(lote)
+        print(f"Lote: {lote}")
+finally:
+    driver.quit()
+SCRIPT
+      - name: Telegram
+        run: |
+          LOTE=$(cat lote.txt)
+          if [ "$LOTE" -ge 114 ]; then
+            TEXT="READY! Lote 2026/$LOTE"
+          else
+            TEXT="Status: 2026/$LOTE (target 114)"
+          fi
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+            -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d "text=$TEXT"
