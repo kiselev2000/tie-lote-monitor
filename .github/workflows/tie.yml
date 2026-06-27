@@ -15,23 +15,42 @@ jobs:
           python3 << 'EOF'
           from selenium import webdriver
           from selenium.webdriver.chrome.service import Service
-          from selenium.webdriver.support.ui import Select
+          from selenium.webdriver.support.ui import Select, WebDriverWait
+          from selenium.webdriver.support import expected_conditions as EC
+          from selenium.webdriver.common.by import By
           from webdriver_manager.chrome import ChromeDriverManager
-          import time, re
+          import time
+          import re
+          
           opts = webdriver.ChromeOptions()
           opts.add_argument('--headless')
           opts.add_argument('--no-sandbox')
           opts.add_argument('--disable-dev-shm-usage')
+          
           driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=opts)
-          driver.get("https://form24.es/en/lote/select")
-          time.sleep(3)
-          Select(driver.find_element("name", "province")).select_by_visible_text("Málaga")
-          time.sleep(2)
-          Select(driver.find_element("name", "office")).select_by_visible_text("CNP Málaga Provincial")
-          time.sleep(3)
-          match = re.search(r'2026/(\d+)', driver.page_source)
-          if match:
-              lote = match.group(1)
-              msg = f"Lote: 2026/{lote}" if int(lote) >= 114 else f"Status: 2026/{lote} (need 114)"
-          driver.quit()
+          
+          try:
+              driver.get("https://form24.es/en/lote/select")
+              time.sleep(5)
+              
+              WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.NAME, "province")))
+              Select(driver.find_element(By.NAME, "province")).select_by_visible_text("Málaga")
+              time.sleep(3)
+              
+              WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.NAME, "office")))
+              Select(driver.find_element(By.NAME, "office")).select_by_visible_text("CNP Málaga Provincial")
+              time.sleep(5)
+              
+              source = driver.page_source
+              match = re.search(r'2026/(\d+)', source)
+              
+              if match:
+                  lote = match.group(1)
+                  print(f"Lote found: {lote}")
+              else:
+                  print("Could not find lote")
+          except Exception as e:
+              print(f"Error: {e}")
+          finally:
+              driver.quit()
           EOF
