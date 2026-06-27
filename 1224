@@ -1,0 +1,49 @@
+name: Monitor TIE Lote
+
+on:
+  schedule:
+    - cron: '0 5,17 * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - run: pip install selenium requests webdriver-manager
+      
+      - name: Check lote
+        run: |
+          python3 << 'EOF'
+          from selenium import webdriver
+          from selenium.webdriver.chrome.service import Service
+          from selenium.webdriver.support.ui import Select
+          from webdriver_manager.chrome import ChromeDriverManager
+          import time
+          import re
+
+          opts = webdriver.ChromeOptions()
+          opts.add_argument('--headless')
+          opts.add_argument('--no-sandbox')
+          opts.add_argument('--disable-dev-shm-usage')
+          
+          driver = webdriver.Chrome(
+              service=Service(ChromeDriverManager().install()),
+              options=opts
+          )
+          
+          try:
+              driver.get("https://form24.es/en/lote/select")
+              time.sleep(3)
+              
+              province = Select(driver.find_element("name", "province"))
+              province.select_by_visible_text("Málaga")
+              time.sleep(2)
+              
+              office = Select(driver.find_element("name", "office"))
+              office.select_by_visi
